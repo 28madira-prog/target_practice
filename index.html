@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <title>Floating Target Shooter</title>
+</head>
+<body>
+    <a-scene background="color: #001122" cursor="rayOrigin: mouse">
+        <!-- Assets -->
+        <a-assets>
+            <a-sound id="shoot-sound" src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBDuJ0/LFdyoFLIHO8diJOQgZaLvt559NEAxQp+PwtmMcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBDuJ0/LFdyoFLIHO8diJOQgZaLvt559NEAxQp+PwtmMcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBDuJ0/LFdyoFLIHO8diJOQgZaLvt559NEAxQp+PwtmMcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBDuJ0/LFdyoFLIHO8diJOQgZaLvt559NEAxQp+PwtmMcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBDuJ0/LFdyoFLIHO8diJOQgZaLvt559NEAxQp+PwtmMcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBDuJ0/LFdyoFLIHO8diJOQgZaLvt559NEAxQp+PwtmMcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBDuJ0/LFdyoFLIHO8diJOQgZaLvt559NEAxQp+PwtmMcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBDuJ0/LFdyoFLIHO8diJOQgZaLvt559NEAxQp+PwtmMcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBDuJ0/LFdyoFLIHO8diJOQgZaLvt559NEAxQp+PwtmMcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBDuJ0/LFdyoFLIHO8diJOQgZaLvt559NEAxQp+PwtmMcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBDuJ0/LFdyoFLIHO8diJOQgZaLvt559NEAxQp+PwtmMcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBDuJ0/LFdyoFLIHO8diJOQgZaLvt559NEAxQp+PwtmMcBjiR1/LNeSsFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBDuJ0/LFdyoF"></a-sound>
+        </a-assets>
+
+        <!-- Camera with controls -->
+        <a-camera 
+            id="camera" 
+            position="0 1.6 3" 
+            look-controls="pointerLockEnabled: true"
+            wasd-controls="acceleration: 20">
+            <a-cursor 
+                id="cursor"
+                position="0 0 -1"
+                geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+                material="color: white; shader: flat"
+                animation__click="property: scale; startEvents: click; from: 1 1 1; to: 1.2 1.2 1.2; dur: 150; dir: alternate; easing: easeInQuad">
+            </a-cursor>
+        </a-camera>
+
+        <!-- Lighting -->
+        <a-light type="ambient" color="#404040"></a-light>
+        <a-light type="directional" position="1 1 1" color="#ffffff"></a-light>
+
+        <!-- UI -->
+        <a-text 
+            id="score-text" 
+            position="-3 3 -2" 
+            value="Score: 0" 
+            color="white" 
+            scale="2 2 2">
+        </a-text>
+        
+        <a-text 
+            id="difficulty-text" 
+            position="1 3 -2" 
+            value="Easy Mode" 
+            color="green" 
+            scale="1.5 1.5 1.5">
+        </a-text>
+
+        <!-- Game container -->
+        <a-entity id="game-container"></a-entity>
+    </a-scene>
+
+    <script>
+        // Game variables
+        let score = 0;
+        let difficulty = 'easy';
+        let gameRunning = true;
+        let targetCount = 0;
+
+        // Difficulty settings
+        const difficultySettings = {
+            easy: {
+                speed: 0.02,
+                targetSize: 1,
+                spawnRate: 2000,
+                shrinkRate: 0,
+                color: '#00ff00'
+            },
+            medium: {
+                speed: 0.04,
+                targetSize: 0.8,
+                spawnRate: 1500,
+                shrinkRate: 0.002,
+                color: '#ffff00'
+            },
+            hard: {
+                speed: 0.06,
+                targetSize: 0.6,
+                spawnRate: 1000,
+                shrinkRate: 0.004,
+                color: '#ff0000'
+            }
+        };
+
+        // Create floating target
+        function createTarget() {
+            const container = document.querySelector('#game-container');
+            const settings = difficultySettings[difficulty];
+            
+            // Create target (sphere or ring randomly)
+            const target = document.createElement('a-entity');
+            const isRing = Math.random() > 0.5;
+            
+            if (isRing) {
+                target.setAttribute('geometry', {
+                    primitive: 'torus',
+                    radius: settings.targetSize,
+                    radiusTubular: 0.1
+                });
+            } else {
+                target.setAttribute('geometry', {
+                    primitive: 'sphere',
+                    radius: settings.targetSize
+                });
+            }
+            
+            target.setAttribute('material', {
+                color: settings.color,
+                emissive: settings.color,
+                emissiveIntensity: 0.2
+            });
+            
+            // Random starting position
+            const x = (Math.random() - 0.5) * 20;
+            const y = Math.random() * 10 + 2;
+            const z = -(Math.random() * 10 + 5);
+            
+            target.setAttribute('position', `${x} ${y} ${z}`);
+            target.classList.add('target');
+            target.setAttribute('id', `target-${targetCount++}`);
+            
+            // Add floating animation
+            const direction = {
+                x: (Math.random() - 0.5) * settings.speed,
+                y: (Math.random() - 0.5) * settings.speed * 0.5,
+                z: (Math.random() - 0.5) * settings.speed * 0.5
+            };
+            
+            target.setAttribute('animation__float', {
+                property: 'position',
+                to: `${x + direction.x * 100} ${y + direction.y * 100} ${z + direction.z * 100}`,
+                dur: 20000,
+                easing: 'linear',
+                loop: true,
+                dir: 'alternate'
+            });
+            
+            // Add rotation animation
+            target.setAttribute('animation__rotate', {
+                property: 'rotation',
+                to: '360 360 360',
+                dur: 5000,
+                easing: 'linear',
+                loop: true
+            });
+            
+            // Add shrinking animation if enabled
+            if (settings.shrinkRate > 0) {
+                target.setAttribute('animation__shrink', {
+                    property: 'scale',
+                    to: '0.1 0.1 0.1',
+                    dur: 15000,
+                    easing: 'linear'
+                });
+                
+                // Remove target when too small
+                setTimeout(() => {
+                    if (target.parentNode) {
+                        target.parentNode.removeChild(target);
+                    }
+                }, 15000);
+            } else {
+                // Remove target after some time to prevent too many targets
+                setTimeout(() => {
+                    if (target.parentNode) {
+                        target.parentNode.removeChild(target);
+                    }
+                }, 25000);
+            }
+            
+            // Add click event
+            target.addEventListener('click', function(e) {
+                e.stopPropagation();
+                hitTarget(this);
+            });
+            
+            container.appendChild(target);
+        }
+
+        // Handle target hit
+        function hitTarget(target) {
+            // Play sound effect
+            const sound = document.querySelector('#shoot-sound');
+            if (sound) {
+                sound.components.sound.playSound();
+            }
+            
+            // Add hit effect
+            target.setAttribute('animation__hit', {
+                property: 'scale',
+                to: '2 2 2',
+                dur: 200,
+                easing: 'easeOutQuad'
+            });
+            
+            target.setAttribute('animation__fade', {
+                property: 'material.opacity',
+                to: 0,
+                dur: 200,
+                easing: 'easeOutQuad'
+            });
+            
+            // Update score
+            score += 10;
+            updateScore();
+            
+            // Remove target
+            setTimeout(() => {
+                if (target.parentNode) {
+                    target.parentNode.removeChild(target);
+                }
+            }, 200);
+            
+            // Check for difficulty increase
+            if (score > 0 && score % 100 === 0) {
+                increaseDifficulty();
+            }
+        }
+
+        // Update score display
+        function updateScore() {
+            const scoreText = document.querySelector('#score-text');
+            scoreText.setAttribute('value', `Score: ${score}`);
+        }
+
+        // Increase difficulty
+        function increaseDifficulty() {
+            if (difficulty === 'easy' && score >= 100) {
+                difficulty = 'medium';
+                updateDifficultyDisplay();
+            } else if (difficulty === 'medium' && score >= 300) {
+                difficulty = 'hard';
+                updateDifficultyDisplay();
+            }
+        }
+
+        // Update difficulty display
+        function updateDifficultyDisplay() {
+            const difficultyText = document.querySelector('#difficulty-text');
+            const colors = { easy: 'green', medium: 'yellow', hard: 'red' };
+            
+            difficultyText.setAttribute('value', `${difficulty.toUpperCase()} Mode`);
+            difficultyText.setAttribute('color', colors[difficulty]);
+        }
+
+        // Game loop
+        function gameLoop() {
+            if (gameRunning) {
+                createTarget();
+                const settings = difficultySettings[difficulty];
+                setTimeout(gameLoop, settings.spawnRate);
+            }
+        }
+
+        // Keyboard controls for difficulty
+        document.addEventListener('keydown', function(e) {
+            switch(e.key) {
+                case '1':
+                    difficulty = 'easy';
+                    updateDifficultyDisplay();
+                    break;
+                case '2':
+                    difficulty = 'medium';
+                    updateDifficultyDisplay();
+                    break;
+                case '3':
+                    difficulty = 'hard';
+                    updateDifficultyDisplay();
+                    break;
+            }
+        });
+
+        // Start game when scene loads
+        document.querySelector('a-scene').addEventListener('loaded', function() {
+            console.log('Game started! Use mouse to look around and click to shoot.');
+            console.log('Press 1, 2, or 3 to change difficulty.');
+            gameLoop();
+        });
+    </script>
+</body>
+</html>
